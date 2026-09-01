@@ -19,6 +19,7 @@ interface ModalDropdownItem {
 
 interface ModalLocationDropdownProps {
   label: string;
+  labelClassName?: string;
   value: string;
   placeholder?: string;
   items: ModalDropdownItem[];
@@ -33,6 +34,7 @@ interface ModalLocationDropdownProps {
 
 function ModalLocationDropdown({
   label,
+  labelClassName,
   value,
   placeholder = 'Select...',
   items,
@@ -116,7 +118,7 @@ function ModalLocationDropdown({
 
   return (
     <div ref={containerRef} className="relative space-y-1 text-left font-sans">
-      <span className="text-[10px] font-bold text-slate-400 block">{label}</span>
+      <span className={labelClassName || "text-[10px] font-bold text-slate-400 block"}>{label}</span>
 
       {isCustomActive ? (
         <div className="space-y-1">
@@ -846,20 +848,15 @@ export function BidModal({
             </div>
 
             {/* Category selection */}
-            <div className="space-y-1">
-              <label className="text-xs font-black text-slate-700 uppercase">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as CategoryType)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ModalLocationDropdown
+              label="Category"
+              labelClassName="text-xs font-black text-slate-700 uppercase block"
+              value={category}
+              placeholder="Select category..."
+              searchPlaceholder="Search category..."
+              items={CATEGORIES.map((c) => ({ name: c }))}
+              onSelect={(item) => setCategory(item.name as CategoryType)}
+            />
 
             {/* GEOGRAPHIC LOCATION HIERARCHY SELECTORS (Country -> State -> City) */}
             <div className="space-y-2 pt-1 border-t border-slate-100">
