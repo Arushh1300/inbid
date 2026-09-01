@@ -304,6 +304,7 @@ export function BidModal({
   const [amount, setAmount] = useState<number>(requiredBid);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
+  const [cityListings, setCityListings] = useState<any[]>([]);
 
   const [metadata, setMetadata] = useState<ExtractedMetadata | null>(initialMetadata);
   const [isFetchingMeta, setIsFetchingMeta] = useState<boolean>(false);
@@ -338,6 +339,8 @@ export function BidModal({
     const norm = normalizeCountry(newCountry);
     setCountryCode(norm.code);
     setIsCustomCity(false);
+    setIsCustomMode(false);
+    setCustomAmount('');
 
     try {
       const res = await fetch(`/api/locations?type=states&country=${encodeURIComponent(newCountry)}`);
@@ -373,6 +376,8 @@ export function BidModal({
   const handleStateChange = async (newState: string) => {
     setState(newState);
     setIsCustomCity(false);
+    setIsCustomMode(false);
+    setCustomAmount('');
 
     try {
       const cRes = await fetch(`/api/locations?type=cities&country=${encodeURIComponent(country)}&state=${encodeURIComponent(newState)}`);
@@ -432,6 +437,56 @@ export function BidModal({
       setIsCustomCity(false);
     }
   }, [isOpen, targetRank, requiredBid, targetListing, initialDestination, initialCategory, initialMetadata]);
+
+  // Sync city listings and recalculate/reset bid amount whenever location (country, state, city) changes
+  useEffect(() => {
+    if (!isOpen || !city || city === 'All Cities') return;
+
+    let isMounted = true;
+    async function syncCityScope() {
+      try {
+        const res = await fetch(
+          `/api/listings?country=${encodeURIComponent(country)}&state=${encodeURIComponent(state)}&city=${encodeURIComponent(city)}&all=true`
+        );
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && isMounted) {
+          setCityListings(json.data);
+          const max = json.data.length > 0
+            ? Math.max(...json.data.map((l: any) => l.cumulativeBid || l.amount || 0))
+            : 0;
+          const minReq = max > 0 ? max + 100 : 99;
+          
+          setAmount(minReq);
+          setIsCustomMode(false);
+          setCustomAmount('');
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch city scope listings:', err);
+      }
+
+      if (isMounted) {
+        const fallback = DEMO_LISTINGS.filter(
+          (l) =>
+            (!country || l.country?.toLowerCase() === country.toLowerCase()) &&
+            l.state.toLowerCase() === state.toLowerCase() &&
+            l.city.toLowerCase() === city.toLowerCase()
+        );
+        setCityListings(fallback);
+        const max = fallback.length > 0 ? Math.max(...fallback.map((l) => l.cumulativeBid)) : 0;
+        const minReq = max > 0 ? max + 100 : 99;
+        
+        setAmount(minReq);
+        setIsCustomMode(false);
+        setCustomAmount('');
+      }
+    }
+
+    syncCityScope();
+    return () => {
+      isMounted = false;
+    };
+  }, [country, state, city, isOpen]);
 
   // Real metadata fetch with 500ms debounce
   useEffect(() => {
@@ -509,32 +564,47 @@ export function BidModal({
     return () => clearTimeout(timer);
   }, [destination, isOpen]);
 
-  if (!isOpen) return null;
-
   // GEOGRAPHIC LEADERBOARD DYNAMIC MATH FOR SELECTED CITY/STATE
-  const scopeListings = DEMO_LISTINGS.filter(
-    (l) => l.state.toLowerCase() === state.toLowerCase() && (city === 'All Cities' || l.city.toLowerCase() === city.toLowerCase())
-  );
-  const scopeMax = scopeListings.length > 0 ? Math.max(...scopeListings.map((l) => l.cumulativeBid)) : 0;
-  const scopeMinRequired = scopeMax > 0 ? scopeMax + 100 : 99;
+  const scopeListings = useMemo(() => {
+    if (cityListings.length > 0) return cityListings;
+    return DEMO_LISTINGS.filter(
+      (l) =>
+        (!country || l.country?.toLowerCase() === country.toLowerCase()) &&
+        l.state.toLowerCase() === state.toLowerCase() &&
+        (city === 'All Cities' || l.city.toLowerCase() === city.toLowerCase())
+    );
+  }, [cityListings, country, state, city]);
+
+  const scopeMax = useMemo(() => {
+    return scopeListings.length > 0
+      ? Math.max(...scopeListings.map((l: any) => l.cumulativeBid || l.amount || 0))
+      : 0;
+  }, [scopeListings]);
+
+  const scopeMinRequired = useMemo(() => {
+    return scopeMax > 0 ? scopeMax + 100 : 99;
+  }, [scopeMax]);
 
   const currentAmount = isCustomMode ? (Number(customAmount) || 0) : amount;
   const newListingTotal = currentAmount;
 
   // Calculate Projected Position within selected geographic scope
-  const scopeTotals = scopeListings.map((l) => l.cumulativeBid);
+  const scopeTotals = scopeListings.map((l: any) => l.cumulativeBid || l.amount || 0);
   const higherListingsCount = scopeTotals.filter((tot) => tot > newListingTotal).length;
   const projectedRank = higherListingsCount + 1;
 
-  const activeStateObj = INDIAN_STATES.find((st) => st.name === state) || INDIAN_STATES[0];
-
-  const quickAmounts = [
-    scopeMinRequired,
-    scopeMinRequired > 250 ? scopeMinRequired + 250 : 250,
-    scopeMinRequired > 500 ? scopeMinRequired + 500 : 500,
-    scopeMinRequired > 1000 ? scopeMinRequired + 1000 : 1000,
-    2500,
-  ].filter((v, idx, arr) => arr.indexOf(v) === idx && v > 0);
+  const quickAmounts = useMemo(() => {
+    if (scopeMinRequired === 99) {
+      return [99, 250, 500, 1000, 2500];
+    }
+    return [
+      scopeMinRequired,
+      scopeMinRequired > 250 ? scopeMinRequired + 250 : 250,
+      scopeMinRequired > 500 ? scopeMinRequired + 500 : 500,
+      scopeMinRequired > 1000 ? scopeMinRequired + 1000 : 1000,
+      2500,
+    ].filter((v, idx, arr) => arr.indexOf(v) === idx && v >= scopeMinRequired);
+  }, [scopeMinRequired]);
 
   const handleSelectQuick = (amt: number) => {
     setIsCustomMode(false);
@@ -547,6 +617,8 @@ export function BidModal({
     setIsCustomMode(true);
     setErrorMsg('');
   };
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
