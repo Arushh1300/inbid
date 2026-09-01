@@ -10,6 +10,8 @@ import { INDIAN_STATES } from '@/lib/indianLocations';
 import { sanitizeDestinationUrl } from '@/lib/normalization';
 import { X, Loader2, Globe, CheckCircle2, ExternalLink, Lock, Trophy, ArrowRight, MapPin } from 'lucide-react';
 
+import { FALLBACK_COUNTRIES, normalizeCountry } from '@/lib/globalLocations';
+
 interface BidModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,10 +46,16 @@ export function BidModal({
   const [state, setState] = useState('Rajasthan');
   const [city, setCity] = useState('Jaipur');
 
-  // Dynamic Location Lists from Database
-  const [countriesList, setCountriesList] = useState<{ name: string; code: string }[]>([]);
-  const [statesList, setStatesList] = useState<{ name: string; code?: string }[]>([]);
-  const [citiesList, setCitiesList] = useState<string[]>([]);
+  // Dynamic Location Lists from Database (pre-populated with solid fallbacks)
+  const [countriesList, setCountriesList] = useState<{ name: string; code: string }[]>(
+    FALLBACK_COUNTRIES.map((c) => ({ name: c.name, code: c.code }))
+  );
+  const [statesList, setStatesList] = useState<{ name: string; code?: string }[]>(
+    INDIAN_STATES.map((s) => ({ name: s.name }))
+  );
+  const [citiesList, setCitiesList] = useState<string[]>(
+    INDIAN_STATES.find((s) => s.name === 'Rajasthan')?.cities || ['Jaipur', 'Jodhpur', 'Udaipur']
+  );
   const [isCustomCity, setIsCustomCity] = useState(false);
 
   const [amount, setAmount] = useState<number>(requiredBid);
@@ -65,14 +73,13 @@ export function BidModal({
   const [finalPaid, setFinalPaid] = useState<number>(requiredBid);
   const [createdListing, setCreatedListing] = useState<Listing | null>(null);
 
-  // Fetch available countries dynamically on modal open
+  // Load countries dynamically
   useEffect(() => {
-    if (!isOpen) return;
     async function fetchCountries() {
       try {
         const res = await fetch('/api/locations?type=countries');
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setCountriesList(json.data);
         }
       } catch (err) {
@@ -80,62 +87,94 @@ export function BidModal({
       }
     }
     fetchCountries();
-  }, [isOpen]);
+  }, []);
 
-  // Fetch states dynamically when country changes
-  useEffect(() => {
-    if (!isOpen || !country) return;
-    async function fetchStates() {
-      try {
-        const res = await fetch(`/api/locations?type=states&country=${encodeURIComponent(country)}`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setStatesList(json.data);
-          // If current state not in list, default to first
-          const found = json.data.find((s: any) => s.name === state);
-          if (!found && json.data.length > 0) {
-            setState(json.data[0].name);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch states:', err);
-      }
-    }
-    fetchStates();
-  }, [isOpen, country]);
+  // Explicit Country Change Handler (resets State and City)
+  const handleCountryChange = async (newCountry: string) => {
+    setCountry(newCountry);
+    const norm = normalizeCountry(newCountry);
+    setCountryCode(norm.code);
+    setIsCustomCity(false);
 
-  // Fetch cities dynamically when state changes
-  useEffect(() => {
-    if (!isOpen || !country || !state) return;
-    async function fetchCities() {
-      try {
-        const res = await fetch(`/api/locations?type=cities&country=${encodeURIComponent(country)}&state=${encodeURIComponent(state)}`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          const names = json.data.map((c: any) => c.city);
+    try {
+      const res = await fetch(`/api/locations?type=states&country=${encodeURIComponent(newCountry)}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setStatesList(json.data);
+        const firstState = json.data[0].name;
+        setState(firstState);
+
+        // Fetch cities for new first state
+        const cRes = await fetch(`/api/locations?type=cities&country=${encodeURIComponent(newCountry)}&state=${encodeURIComponent(firstState)}`);
+        const cJson = await cRes.json();
+        if (cJson.success && Array.isArray(cJson.data) && cJson.data.length > 0) {
+          const names = cJson.data.map((c: any) => c.city);
           setCitiesList(names);
-          if (!isCustomCity && names.length > 0 && !names.includes(city)) {
-            setCity(names[0]);
-          }
+          setCity(names[0] || '');
+        } else {
+          setCitiesList([]);
+          setCity('');
         }
-      } catch (err) {
-        console.warn('Failed to fetch cities:', err);
+      } else {
+        setStatesList([]);
+        setState('');
+        setCitiesList([]);
+        setCity('');
       }
+    } catch (err) {
+      console.warn('Failed to switch country:', err);
     }
-    fetchCities();
-  }, [isOpen, country, state, isCustomCity]);
+  };
 
-  // Synchronize when modal opens
+  // Explicit State Change Handler (resets City)
+  const handleStateChange = async (newState: string) => {
+    setState(newState);
+    setIsCustomCity(false);
+
+    try {
+      const cRes = await fetch(`/api/locations?type=cities&country=${encodeURIComponent(country)}&state=${encodeURIComponent(newState)}`);
+      const cJson = await cRes.json();
+      if (cJson.success && Array.isArray(cJson.data) && cJson.data.length > 0) {
+        const names = cJson.data.map((c: any) => c.city);
+        setCitiesList(names);
+        setCity(names[0] || '');
+      } else {
+        setCitiesList([]);
+        setCity('');
+      }
+    } catch (err) {
+      console.warn('Failed to switch state:', err);
+    }
+  };
+
+  // Direct load when modal opens
   useEffect(() => {
     if (isOpen) {
       if (targetListing) {
         setDestination(targetListing.destination_normalized);
         setCategory(targetListing.category);
-        setCountry(targetListing.country || 'India');
-        setCountryCode(targetListing.country_code || (targetListing.country === 'India' ? 'IN' : 'US'));
-        setState(targetListing.state || 'Rajasthan');
-        setCity(targetListing.city || 'Jaipur');
+        const c = targetListing.country || 'India';
+        const st = targetListing.state || 'Rajasthan';
+        const ct = targetListing.city || 'Jaipur';
+        setCountry(c);
+        setCountryCode(targetListing.country_code || (c === 'India' ? 'IN' : 'US'));
+        setState(st);
+        setCity(ct);
         setAmount(requiredBid || 100);
+        
+        // Sync states/cities for target listing
+        fetch(`/api/locations?type=states&country=${encodeURIComponent(c)}`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (j.success && Array.isArray(j.data)) setStatesList(j.data);
+          })
+          .catch(() => {});
+        fetch(`/api/locations?type=cities&country=${encodeURIComponent(c)}&state=${encodeURIComponent(st)}`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (j.success && Array.isArray(j.data)) setCitiesList(j.data.map((x: any) => x.city));
+          })
+          .catch(() => {});
       } else {
         setDestination(initialDestination);
         setCategory((initialCategory as CategoryType) || 'Startups');
@@ -272,6 +311,21 @@ export function BidModal({
 
     if (!destination.trim()) {
       setErrorMsg('Please enter your website URL or @handle');
+      return;
+    }
+
+    if (!country || !country.trim()) {
+      setErrorMsg('Please select a country');
+      return;
+    }
+
+    if (!state || !state.trim()) {
+      setErrorMsg('Please select a state / region');
+      return;
+    }
+
+    if (!city || !city.trim()) {
+      setErrorMsg('Please select or enter a city');
       return;
     }
 
@@ -438,12 +492,29 @@ export function BidModal({
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setCountry(suggestedLocation.country);
+                        onClick={async () => {
+                          const targetC = suggestedLocation.country;
+                          const targetSt = suggestedLocation.state;
+                          const targetCt = suggestedLocation.city;
+                          setCountry(targetC);
                           setCountryCode(suggestedLocation.countryCode);
-                          setState(suggestedLocation.state);
-                          setCity(suggestedLocation.city);
+                          setState(targetSt);
+                          setCity(targetCt);
                           setSuggestedLocation(null);
+                          setIsCustomCity(false);
+
+                          try {
+                            const sRes = await fetch(`/api/locations?type=states&country=${encodeURIComponent(targetC)}`);
+                            const sJson = await sRes.json();
+                            if (sJson.success && Array.isArray(sJson.data) && sJson.data.length > 0) {
+                              setStatesList(sJson.data);
+                            }
+                            const cRes = await fetch(`/api/locations?type=cities&country=${encodeURIComponent(targetC)}&state=${encodeURIComponent(targetSt)}`);
+                            const cJson = await cRes.json();
+                            if (cJson.success && Array.isArray(cJson.data) && cJson.data.length > 0) {
+                              setCitiesList(cJson.data.map((x: any) => x.city));
+                            }
+                          } catch {}
                         }}
                         className="bg-orange-500 text-white font-extrabold px-2.5 py-1 rounded-md text-[10px] hover:bg-orange-600 cursor-pointer flex-shrink-0"
                       >
@@ -486,23 +557,14 @@ export function BidModal({
                   <span className="text-[10px] font-bold text-slate-400 block">Country</span>
                   <select
                     value={country}
-                    onChange={(e) => {
-                      const sel = e.target.value;
-                      setCountry(sel);
-                      const cObj = countriesList.find((c) => c.name === sel);
-                      if (cObj) setCountryCode(cObj.code);
-                    }}
+                    onChange={(e) => handleCountryChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer"
                   >
-                    {countriesList.length > 0 ? (
-                      countriesList.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="India">India</option>
-                    )}
+                    {countriesList.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -510,18 +572,14 @@ export function BidModal({
                   <span className="text-[10px] font-bold text-slate-400 block">State / Region</span>
                   <select
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
+                    onChange={(e) => handleStateChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer"
                   >
-                    {statesList.length > 0 ? (
-                      statesList.map((st) => (
-                        <option key={st.name} value={st.name}>
-                          {st.name} {st.code ? `(${st.code})` : ''}
-                        </option>
-                      ))
-                    ) : (
-                      <option value={state}>{state}</option>
-                    )}
+                    {statesList.map((st) => (
+                      <option key={st.name} value={st.name}>
+                        {st.name} {st.code ? `(${st.code})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

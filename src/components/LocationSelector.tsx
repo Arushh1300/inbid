@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CountryInfo, StateInfo, CityInfo, POPULAR_GLOBAL_CITIES, getCountryFlag } from '@/lib/globalLocations';
+import { CountryInfo, StateInfo, CityInfo, POPULAR_GLOBAL_CITIES, getCountryFlag, FALLBACK_COUNTRIES } from '@/lib/globalLocations';
 import { MapPin, ChevronDown, ChevronRight, Check, Search, ArrowLeft, X, Building2, Globe, Loader2 } from 'lucide-react';
 
 interface LocationSelectorProps {
@@ -25,7 +25,7 @@ export function LocationSelector({
   const [activeState, setActiveState] = useState<StateInfo | null>(null);
 
   // Dynamic data states
-  const [countries, setCountries] = useState<CountryInfo[]>([]);
+  const [countries, setCountries] = useState<CountryInfo[]>(FALLBACK_COUNTRIES);
   const [states, setStates] = useState<StateInfo[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [searchResults, setSearchResults] = useState<CityInfo[]>([]);
@@ -40,16 +40,14 @@ export function LocationSelector({
   const statesCache = useRef<Record<string, StateInfo[]>>({});
   const citiesCache = useRef<Record<string, string[]>>({});
 
-  // 1. Fetch countries on initial open or mount
+  // 1. Fetch countries on mount
   useEffect(() => {
     let isMounted = true;
     async function loadCountries() {
-      if (countries.length > 0) return;
-      setIsLoadingCountries(true);
       try {
         const res = await fetch('/api/locations?type=countries');
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && isMounted) {
+        if (json.success && Array.isArray(json.data) && isMounted && json.data.length > 0) {
           const mapped: CountryInfo[] = json.data.map((c: any) => ({
             name: c.name,
             code: c.code,
@@ -59,18 +57,14 @@ export function LocationSelector({
         }
       } catch (err) {
         console.warn('Failed to load countries:', err);
-      } finally {
-        if (isMounted) setIsLoadingCountries(false);
       }
     }
 
-    if (isOpen) {
-      loadCountries();
-    }
+    loadCountries();
     return () => {
       isMounted = false;
     };
-  }, [isOpen, countries.length]);
+  }, []);
 
   // 2. Fetch states dynamically when activeCountry changes
   useEffect(() => {
