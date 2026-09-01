@@ -10,7 +10,7 @@ import { INDIAN_STATES } from '@/lib/indianLocations';
 import { sanitizeDestinationUrl } from '@/lib/normalization';
 import { X, Loader2, Globe, CheckCircle2, ExternalLink, Lock, Trophy, ArrowRight, MapPin } from 'lucide-react';
 
-import { FALLBACK_COUNTRIES, normalizeCountry } from '@/lib/globalLocations';
+import { FALLBACK_COUNTRIES, normalizeCountry, getCountryFlag } from '@/lib/globalLocations';
 
 interface BidModalProps {
   isOpen: boolean;
@@ -562,7 +562,7 @@ export function BidModal({
                   >
                     {countriesList.map((c) => (
                       <option key={c.name} value={c.name}>
-                        {c.name}
+                        {getCountryFlag(c.code)} {c.name}
                       </option>
                     ))}
                   </select>
