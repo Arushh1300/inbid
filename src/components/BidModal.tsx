@@ -161,7 +161,7 @@ function ModalLocationDropdown({
 
           {isOpen && (
             <div
-              className={`absolute left-0 z-50 w-full min-w-[200px] sm:min-w-[220px] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-150 font-sans ${
+              className={`absolute left-0 right-0 z-50 w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-150 font-sans box-border ${
                 openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
               }`}
             >
@@ -619,11 +619,11 @@ export function BidModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200 font-sans">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-xl border border-slate-200 overflow-hidden relative p-6 sm:p-8 space-y-5 max-h-[90vh] overflow-y-auto text-left">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200 font-sans overflow-y-auto overflow-x-hidden box-border">
+      <div className="bg-white w-[calc(100vw-24px)] max-w-lg rounded-3xl shadow-2xl border border-slate-200 relative p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 max-h-[calc(100dvh-24px)] overflow-y-auto overflow-x-hidden text-left mx-auto my-auto box-border">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors cursor-pointer z-10"
         >
           <X className="w-4 h-4" />
         </button>
