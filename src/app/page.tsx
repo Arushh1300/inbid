@@ -338,8 +338,8 @@ function MarketplaceContent() {
       {/* Main Content Layout: Sidebar + Leaderboard */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Category Filter Sidebar (3 cols) */}
-          <div className="lg:col-span-3">
+          {/* Category Filter Sidebar (3 cols on lg; order 2 on mobile) */}
+          <div className="order-2 lg:order-1 lg:col-span-3">
             <CategorySidebar
               selectedCategory={selectedCategory}
               listings={allListings}
@@ -348,8 +348,8 @@ function MarketplaceContent() {
             />
           </div>
 
-          {/* Leaderboard Stream (9 cols) */}
-          <div id="leaderboard" className="lg:col-span-9 space-y-8">
+          {/* Leaderboard Stream (9 cols on lg; order 1 on mobile) */}
+          <div id="leaderboard" className="order-1 lg:order-2 lg:col-span-9 space-y-8">
             <MarketplaceLeaderboard
               selectedCategory={selectedCategory}
               selectedCountry={selectedCountry}
