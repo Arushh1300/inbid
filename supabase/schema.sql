@@ -174,9 +174,10 @@ DECLARE
     v_act_id UUID;
 BEGIN
     -- 1. Lock the bid row for update to prevent concurrent duplicate payment processing
+    -- Supports lookup by payment_order_id OR dodo_checkout_session_id
     SELECT * INTO v_bid
     FROM public.bids
-    WHERE payment_order_id = p_order_id
+    WHERE payment_order_id = p_order_id OR dodo_checkout_session_id = p_order_id
     FOR UPDATE;
 
     IF NOT FOUND THEN
@@ -187,11 +188,18 @@ BEGIN
     IF v_bid.status = 'confirmed' THEN
         SELECT * INTO v_listing FROM public.listings WHERE id = v_bid.listing_id;
         
-        -- Compute current rank
+        -- Compute current rank in exact leaderboard scope (category, country, state, city)
         SELECT COUNT(*) + 1 INTO v_new_rank
         FROM public.listings
         WHERE status = 'active'
-          AND cumulative_amount > v_listing.cumulative_amount;
+          AND category = v_listing.category
+          AND country = v_listing.country
+          AND state = v_listing.state
+          AND city = v_listing.city
+          AND (
+            cumulative_amount > v_listing.cumulative_amount OR
+            (cumulative_amount = v_listing.cumulative_amount AND created_at < v_listing.created_at)
+          );
 
         RETURN jsonb_build_object(
             'success', true,
@@ -216,12 +224,19 @@ BEGIN
         RAISE EXCEPTION 'Listing % associated with order % not found', v_bid.listing_id, p_order_id;
     END IF;
 
-    -- Compute old rank before adding amount (among active listings)
+    -- Compute old rank before adding amount (among active listings in exact category + location scope)
     IF v_listing.status = 'active' AND v_listing.cumulative_amount > 0 THEN
         SELECT COUNT(*) + 1 INTO v_old_rank
         FROM public.listings
         WHERE status = 'active'
-          AND cumulative_amount > v_listing.cumulative_amount;
+          AND category = v_listing.category
+          AND country = v_listing.country
+          AND state = v_listing.state
+          AND city = v_listing.city
+          AND (
+            cumulative_amount > v_listing.cumulative_amount OR
+            (cumulative_amount = v_listing.cumulative_amount AND created_at < v_listing.created_at)
+          );
     ELSE
         v_old_rank := 0;
     END IF;
@@ -241,11 +256,18 @@ BEGIN
     WHERE id = v_listing.id
     RETURNING * INTO v_listing;
 
-    -- 6. Compute new rank after increment
+    -- 6. Compute new rank after increment (among active listings in exact category + location scope)
     SELECT COUNT(*) + 1 INTO v_new_rank
     FROM public.listings
     WHERE status = 'active'
-      AND cumulative_amount > v_listing.cumulative_amount;
+      AND category = v_listing.category
+      AND country = v_listing.country
+      AND state = v_listing.state
+      AND city = v_listing.city
+      AND (
+        cumulative_amount > v_listing.cumulative_amount OR
+        (cumulative_amount = v_listing.cumulative_amount AND created_at < v_listing.created_at)
+      );
 
     -- 7. Determine public activity event type
     IF v_new_rank = 1 THEN

@@ -37,11 +37,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify quote / position bid requirements on server side
-    const quote = await getQuoteForBid(String(destination).trim(), numAmount);
-    if (quote.is_new_listing && numAmount < 99) {
+    // Verify quote / position bid requirements on server side for exact scope
+    const quote = await getQuoteForBid(
+      String(destination).trim(),
+      numAmount,
+      category ? String(category).trim() : undefined,
+      country ? String(country).trim() : undefined,
+      state ? String(state).trim() : undefined,
+      city ? String(city).trim() : undefined
+    );
+
+    if (numAmount < quote.min_amount_required) {
+      const scopeName = city ? String(city).trim() : 'this leaderboard';
       return NextResponse.json(
-        { success: false, error: 'Minimum starting bid for a new listing is ₹99' },
+        {
+          success: false,
+          error: `Minimum required bid to claim #1 in ${scopeName} is ₹${quote.min_amount_required}`,
+        },
         { status: 400 }
       );
     }

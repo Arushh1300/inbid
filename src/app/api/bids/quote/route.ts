@@ -4,7 +4,7 @@ import { getQuoteForBid } from '@/lib/store';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { destination, amount } = body || {};
+    const { destination, amount, category, country, state, city } = body || {};
 
     if (!destination || typeof destination !== 'string' || !destination.trim()) {
       return NextResponse.json(
@@ -13,8 +13,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const bidAmount = Number(amount) || 100;
-    const quote = await getQuoteForBid(destination.trim(), bidAmount);
+    const bidAmount = Number(amount) || 99;
+    const quote = await getQuoteForBid(
+      destination.trim(),
+      bidAmount,
+      category ? String(category).trim() : undefined,
+      country ? String(country).trim() : undefined,
+      state ? String(state).trim() : undefined,
+      city ? String(city).trim() : undefined
+    );
 
     return NextResponse.json({
       success: true,

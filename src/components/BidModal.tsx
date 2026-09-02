@@ -203,13 +203,13 @@ export function BidModal({
     async function syncCityScope() {
       try {
         const res = await fetch(
-          `/api/listings?country=${encodeURIComponent(country)}&state=${encodeURIComponent(state)}&city=${encodeURIComponent(city)}&all=true`
+          `/api/listings?category=${encodeURIComponent(category)}&country=${encodeURIComponent(country)}&state=${encodeURIComponent(state)}&city=${encodeURIComponent(city)}&all=true`
         );
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && isMounted) {
           setCityListings(json.data);
           const max = json.data.length > 0
-            ? Math.max(...json.data.map((l: any) => l.cumulativeBid || l.amount || 0))
+            ? Math.max(...json.data.map((l: any) => l.cumulativeBid || l.cumulative_amount || l.amount || 0))
             : 0;
           const minReq = max > 0 ? max + 100 : 99;
           
@@ -227,7 +227,8 @@ export function BidModal({
           (l) =>
             (!country || l.country?.toLowerCase() === country.toLowerCase()) &&
             l.state.toLowerCase() === state.toLowerCase() &&
-            l.city.toLowerCase() === city.toLowerCase()
+            l.city.toLowerCase() === city.toLowerCase() &&
+            (!category || (category as string) === 'All' || l.category.toLowerCase() === category.toLowerCase())
         );
         setCityListings(fallback);
         const max = fallback.length > 0 ? Math.max(...fallback.map((l) => l.cumulativeBid)) : 0;
@@ -243,7 +244,7 @@ export function BidModal({
     return () => {
       isMounted = false;
     };
-  }, [country, state, city, isOpen]);
+  }, [category, country, state, city, isOpen]);
 
   // Real metadata fetch with 500ms debounce
   useEffect(() => {
@@ -321,20 +322,21 @@ export function BidModal({
     return () => clearTimeout(timer);
   }, [destination, isOpen]);
 
-  // GEOGRAPHIC LEADERBOARD DYNAMIC MATH FOR SELECTED CITY/STATE
+  // GEOGRAPHIC LEADERBOARD DYNAMIC MATH FOR SELECTED CITY/STATE & CATEGORY
   const scopeListings = useMemo(() => {
     if (cityListings.length > 0) return cityListings;
     return DEMO_LISTINGS.filter(
       (l) =>
         (!country || l.country?.toLowerCase() === country.toLowerCase()) &&
         l.state.toLowerCase() === state.toLowerCase() &&
-        (city === 'All Cities' || l.city.toLowerCase() === city.toLowerCase())
+        (city === 'All Cities' || l.city.toLowerCase() === city.toLowerCase()) &&
+        (!category || (category as string) === 'All' || l.category.toLowerCase() === category.toLowerCase())
     );
-  }, [cityListings, country, state, city]);
+  }, [cityListings, country, state, city, category]);
 
   const scopeMax = useMemo(() => {
     return scopeListings.length > 0
-      ? Math.max(...scopeListings.map((l: any) => l.cumulativeBid || l.amount || 0))
+      ? Math.max(...scopeListings.map((l: any) => l.cumulativeBid || l.cumulative_amount || l.amount || 0))
       : 0;
   }, [scopeListings]);
 
@@ -345,8 +347,8 @@ export function BidModal({
   const currentAmount = isCustomMode ? (Number(customAmount) || 0) : amount;
   const newListingTotal = currentAmount;
 
-  // Calculate Projected Position within selected geographic scope
-  const scopeTotals = scopeListings.map((l: any) => l.cumulativeBid || l.amount || 0);
+  // Calculate Projected Position within selected geographic & category scope
+  const scopeTotals = scopeListings.map((l: any) => l.cumulativeBid || l.cumulative_amount || l.amount || 0);
   const higherListingsCount = scopeTotals.filter((tot) => tot > newListingTotal).length;
   const projectedRank = higherListingsCount + 1;
 
@@ -401,8 +403,8 @@ export function BidModal({
       return;
     }
 
-    if (currentAmount < 99) {
-      setErrorMsg('Minimum initial bid for a new listing is ₹99');
+    if (currentAmount < scopeMinRequired) {
+      setErrorMsg(`Minimum required bid to claim #1 position in ${city} is ${formatINR(scopeMinRequired)}`);
       return;
     }
 

@@ -153,36 +153,53 @@ export async function getListingBySlug(slug: string): Promise<{ listing: Listing
 }
 
 /**
- * Calculate Quote / Estimate Rank for Bidding against Real Database Listings
+ * Calculate Quote / Estimate Rank for Competitive Bidding against Real Database Listings
+ * Leaderboard scope: category + country + state + city
  */
-export async function getQuoteForBid(destinationInput: string, amount: number): Promise<BidQuote> {
+export async function getQuoteForBid(
+  destinationInput: string,
+  amount: number,
+  category?: string,
+  country?: string,
+  state?: string,
+  city?: string
+): Promise<BidQuote> {
   const normalizedInfo = normalizeDestination(destinationInput);
   const normDest = normalizedInfo.normalized;
-  const listings = await getListings();
 
-  const existing = listings.find((l) => l.destination_normalized === normDest);
+  // 1. Fetch active listings for the EXACT leaderboard scope (category, country, state, city)
+  const listingsInScope = await getListings(category, undefined, state, city, country);
+
+  // 2. Find existing listing for this domain in the scope (if any)
+  const existing = listingsInScope.find((l) => l.destination_normalized === normDest);
   const currentTotal = existing ? existing.cumulative_amount : 0;
+
+  // 3. Find highest cumulative_amount among OTHER listings in this exact scope
+  const otherListings = listingsInScope.filter((l) => l.destination_normalized !== normDest);
+  const highestCurrentInScope = otherListings.length > 0
+    ? Math.max(...otherListings.map((l) => l.cumulative_amount))
+    : 0;
+
+  // 4. Minimum required bid to claim Rank #1 in this scope:
+  // If no other confirmed bids in scope: ₹99
+  // If highest bid is e.g. ₹99: ₹199 (highestCurrentInScope + 100)
+  const minRequiredToTake1 = highestCurrentInScope > 0 ? highestCurrentInScope + 100 : 99;
+
+  // 5. Full bid amount charged (no subtraction across different businesses)
   const newTotal = currentTotal + amount;
 
-  const otherTotals = listings
-    .filter((l) => l.destination_normalized !== normDest)
-    .map((l) => l.cumulative_amount);
-
-  const higherCount = otherTotals.filter((tot) => tot > newTotal).length;
+  const higherCount = otherListings.filter((l) => l.cumulative_amount > newTotal).length;
   const projectedRank = higherCount + 1;
-
-  const highestCurrent = listings.length > 0 ? listings[0].cumulative_amount : 0;
-  const minRequiredToTake1 = listings.length === 0 ? 99 : Math.max(99, (highestCurrent + 100) - currentTotal);
 
   return {
     destination_normalized: normDest,
     title: existing ? existing.title : destinationInput,
-    category: existing ? existing.category : 'Startups',
-    country: existing ? existing.country : 'India',
-    country_code: existing ? existing.country_code : 'IN',
-    state: existing ? existing.state : 'Rajasthan',
-    state_code: existing ? existing.state_code : 'RJ',
-    city: existing ? existing.city : 'Jaipur',
+    category: (category as CategoryType) || (existing ? existing.category : 'Startups'),
+    country: country || (existing ? existing.country : 'India'),
+    country_code: existing ? existing.country_code : (country === 'India' ? 'IN' : 'US'),
+    state: state || (existing ? existing.state : 'Rajasthan'),
+    state_code: existing ? existing.state_code || undefined : undefined,
+    city: city || (existing ? existing.city : 'Jaipur'),
     existing_listing_id: existing ? existing.id : null,
     current_total: currentTotal,
     amount_adding: amount,
