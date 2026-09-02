@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#0F172A"/>
+  <!-- Top bar (short, vibrant orange) -->
+  <rect x="96" y="136" width="144" height="48" rx="24" fill="#F97316"/>
+  <!-- Middle bar (medium, bright white) -->
+  <rect x="96" y="232" width="232" height="48" rx="24" fill="#FFFFFF"/>
+  <!-- Bottom bar (long, bright white) -->
+  <rect x="96" y="328" width="320" height="48" rx="24" fill="#FFFFFF"/>
+</svg>

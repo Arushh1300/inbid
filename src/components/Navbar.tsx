@@ -15,11 +15,11 @@ export function Navbar({ activeTab = 'leaderboard', onSelectNav }: NavbarProps) 
   const [timeFilter, setTimeFilter] = useState<'all' | 'today'>('all');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
-  // Initialize theme from localStorage or system preference
+  // Initialize theme: default to LIGHT mode for first-time visitors.
+  // Theme preference is only saved in localStorage after manual user action.
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+    const shouldBeDark = savedTheme === 'dark';
 
     setIsDarkMode(shouldBeDark);
     if (shouldBeDark) {

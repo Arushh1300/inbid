@@ -17,8 +17,15 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InBid — Live Business Leaderboard & Discovery",
-  description: "India's live business leaderboard and real-time discovery board.",
+  title: "InBid | Live Business Leaderboard",
+  description: "Discover, rank, and explore top businesses on InBid — India's live real-time business leaderboard and discovery platform.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
