@@ -5,6 +5,7 @@ import { formatINR } from '@/lib/utils';
 import { CATEGORIES } from '@/lib/types';
 import { ExtractedMetadata } from '@/lib/metadataExtractor';
 import { ArrowRight, Globe, Plus, ArrowUpRight } from 'lucide-react';
+import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface HeroSubmissionBarProps {
   highestBid: number;
@@ -104,18 +105,17 @@ export function HeroSubmissionBar({ highestBid, onOpenBidModal }: HeroSubmission
           </div>
 
           {/* Category dropdown */}
-          <div className="sm:border-l sm:border-slate-200 sm:pl-3">
-            <select
+          <div className="sm:border-l sm:border-slate-200 sm:pl-2 relative">
+            <CustomDropdown
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full sm:w-auto bg-slate-50 sm:bg-transparent border border-slate-200 sm:border-0 rounded-xl sm:rounded-none px-4 py-3.5 text-xs sm:text-sm font-extrabold text-slate-700 focus:outline-none cursor-pointer"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              options={CATEGORIES}
+              onSelect={(cat) => setCategory(cat)}
+              placeholder="Category"
+              searchPlaceholder="Search category..."
+              containerClassName="relative"
+              triggerClassName="w-full sm:w-auto min-w-[130px] bg-slate-50 sm:bg-transparent border border-slate-200 sm:border-0 rounded-xl sm:rounded-none px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-extrabold text-slate-700 hover:text-orange-600 transition-colors flex items-center justify-between cursor-pointer group"
+              popoverClassName="absolute left-0 sm:left-auto sm:right-0 z-50 w-full sm:w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-150 font-sans top-full mt-1.5 box-border"
+            />
           </div>
 
           {/* BID Button */}
