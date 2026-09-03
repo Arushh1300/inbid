@@ -20,6 +20,7 @@ export async function POST(req: Request) {
       canonical_url,
       amount,
       bidder_name,
+      return_url,
     } = body || {};
 
     if (!destination) {
@@ -86,12 +87,13 @@ export async function POST(req: Request) {
         listingTitle: orderResult.listing.title,
         destination: orderResult.listing.destination_normalized,
         bidderName: bidder_name ? String(bidder_name).trim() : undefined,
+        returnUrl: return_url,
       });
 
       // Attach Dodo Checkout Session ID to pending bid in database
       await updateBidDodoSession(orderResult.order_id, dodoSession.session_id);
     } catch (dodoErr: any) {
-      console.error('Dodo Checkout Session creation error:', dodoErr);
+      console.error('Dodo Payments Session creation error:', dodoErr);
       return NextResponse.json(
         {
           success: false,

@@ -418,7 +418,7 @@ export async function createPendingBidOrder(payload: {
 }
 
 /**
- * Attach Dodo Checkout Session ID to pending bid row
+ * Attach Dodo Payments Checkout Session ID to pending bid row in database
  */
 export async function updateBidDodoSession(orderId: string, dodoSessionId: string): Promise<void> {
   const adminClient = createAdminClient();

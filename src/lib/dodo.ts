@@ -10,7 +10,8 @@ export function getDodoClient(): DodoPayments {
     throw new Error('DODO_PAYMENTS_API_KEY environment variable is not configured');
   }
 
-  const envMode = process.env.DODO_PAYMENTS_ENVIRONMENT === 'live_mode' ? 'live_mode' : 'test_mode';
+  const rawEnv = (process.env.DODO_PAYMENTS_ENVIRONMENT || '').trim().toLowerCase();
+  const envMode = (rawEnv === 'live_mode' || rawEnv === 'live mode' || rawEnv === 'live') ? 'live_mode' : 'test_mode';
 
   return new DodoPayments({
     bearerToken: apiKey,
@@ -100,20 +101,40 @@ export async function verifyDodoPaymentStatus(sessionIdOrPaymentId: string): Pro
   try {
     const client = getDodoClient();
     
-    // Attempt to fetch checkout session or payment details
-    const session: any = await (client.checkoutSessions as any).get(sessionIdOrPaymentId);
-    
-    if (session) {
-      const status = session.status || session.payment_status;
-      const isPaid = status === 'succeeded' || status === 'paid' || status === 'completed';
-      return {
-        paid: isPaid,
-        status: String(status || 'unknown'),
-        paymentId: session.payment_id || session.id || sessionIdOrPaymentId,
-      };
+    // Attempt to fetch checkout session
+    if ((client.checkoutSessions as any)?.get) {
+      const session: any = await (client.checkoutSessions as any).get(sessionIdOrPaymentId);
+      if (session) {
+        const status = session.status || session.payment_status;
+        const isPaid = status === 'succeeded' || status === 'paid' || status === 'completed';
+        return {
+          paid: isPaid,
+          status: String(status || 'unknown'),
+          paymentId: session.payment_id || session.id || sessionIdOrPaymentId,
+        };
+      }
     }
   } catch (err: any) {
-    console.warn('Dodo payment verify lookup notice:', err?.message || err);
+    console.warn('Dodo checkout session lookup notice:', err?.message || err);
+  }
+
+  try {
+    const client = getDodoClient();
+    // Attempt to fetch payment directly
+    if ((client.payments as any)?.get) {
+      const payment: any = await (client.payments as any).get(sessionIdOrPaymentId);
+      if (payment) {
+        const status = payment.status;
+        const isPaid = status === 'succeeded' || status === 'paid' || status === 'completed';
+        return {
+          paid: isPaid,
+          status: String(status || 'unknown'),
+          paymentId: payment.payment_id || payment.id || sessionIdOrPaymentId,
+        };
+      }
+    }
+  } catch (err: any) {
+    console.warn('Dodo payment lookup fallback notice:', err?.message || err);
   }
 
   return { paid: false, status: 'unverified' };

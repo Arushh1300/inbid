@@ -412,15 +412,15 @@ export function BidModal({
 
     const domain = metadata?.domain || destination.replace(/^https?:\/\//, '').split('/')[0];
     const rawUrl = metadata?.canonicalUrl || sanitizeDestinationUrl(destination);
+    const listingTitle = metadata?.title || domain;
 
-    // Initiate Dodo Payments checkout session via server API
     try {
       const createRes = await fetch('/api/bids/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destination: rawUrl,
-          title: metadata?.title || domain,
+          title: listingTitle,
           category,
           country,
           country_code: countryCode,
@@ -437,12 +437,11 @@ export function BidModal({
       const createJson = await createRes.json();
 
       if (!createJson.success || !createJson.data?.checkout_url) {
-        throw new Error(createJson.error || 'Failed to initialize Dodo Payments checkout');
+        throw new Error(createJson.error || 'Failed to initialize Dodo Payments checkout session');
       }
 
-      // Redirect user to official Dodo Payments Hosted Checkout
+      // Redirect user to Dodo Payments checkout page
       window.location.href = createJson.data.checkout_url;
-      return;
     } catch (err: any) {
       setStatusState('idle');
       setErrorMsg(err?.message || 'Payment processing failed. Please try again.');
