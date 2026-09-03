@@ -5,13 +5,37 @@ import { Webhook } from 'standardwebhooks';
  * Singleton Dodo Payments SDK Client (Server-side Only)
  */
 export function getDodoClient(): DodoPayments {
-  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
-  if (!apiKey) {
+  const rawKey = process.env.DODO_PAYMENTS_API_KEY;
+  if (!rawKey) {
     throw new Error('DODO_PAYMENTS_API_KEY environment variable is not configured');
   }
 
+  const apiKey = rawKey.trim();
   const rawEnv = (process.env.DODO_PAYMENTS_ENVIRONMENT || '').trim().toLowerCase();
-  const envMode = (rawEnv === 'live_mode' || rawEnv === 'live mode' || rawEnv === 'live') ? 'live_mode' : 'test_mode';
+  let envMode: 'live_mode' | 'test_mode';
+
+  if (rawEnv === 'live_mode' || rawEnv === 'live mode' || rawEnv === 'live') {
+    envMode = 'live_mode';
+  } else if (rawEnv === 'test_mode' || rawEnv === 'test mode' || rawEnv === 'test') {
+    envMode = 'test_mode';
+  } else {
+    throw new Error(
+      `Invalid DODO_PAYMENTS_ENVIRONMENT value "${process.env.DODO_PAYMENTS_ENVIRONMENT}". Must be "live_mode" or "test_mode".`
+    );
+  }
+
+  // Safe diagnostic logging (Do not expose raw secret key)
+  const maskedKey =
+    apiKey.length > 10
+      ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}`
+      : '***';
+
+  console.log('[Dodo SDK Init]', {
+    hasApiKey: true,
+    keyLength: apiKey.length,
+    maskedKey,
+    environment: envMode,
+  });
 
   return new DodoPayments({
     bearerToken: apiKey,
