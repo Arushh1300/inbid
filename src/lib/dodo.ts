@@ -5,7 +5,11 @@ import { Webhook } from 'standardwebhooks';
  * Singleton Dodo Payments SDK Client (Server-side Only)
  */
 export function getDodoClient(): DodoPayments {
-  const rawKey = process.env.DODO_PAYMENTS_API_KEY;
+  const rawKey =
+    process.env.DODO_PAYMENTS_API_KEY ||
+    process.env.DODO_PAYMENTS_API_KEY_LIVE ||
+    process.env.DODO_PAYMENTS_API_KEY_TEST;
+
   if (!rawKey) {
     throw new Error('DODO_PAYMENTS_API_KEY environment variable is not configured');
   }
@@ -65,7 +69,10 @@ export interface DodoCheckoutResult {
  */
 export async function createDodoCheckoutSession(options: CreateCheckoutOptions): Promise<DodoCheckoutResult> {
   const client = getDodoClient();
-  const productId = process.env.DODO_PAYMENTS_PRODUCT_ID;
+  const productId =
+    process.env.DODO_PAYMENTS_PRODUCT_ID ||
+    process.env.DODO_PAYMENTS_PRODUCT_ID_LIVE ||
+    process.env.DODO_PAYMENTS_PRODUCT_ID_TEST;
 
   if (!productId) {
     throw new Error('DODO_PAYMENTS_PRODUCT_ID environment variable is missing');
